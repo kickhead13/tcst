@@ -1,0 +1,150 @@
+#!/bin/bash
+
+if ! find -type d -wholename "./src" > /dev/null
+then
+	echo \"src\" directory not found >&2
+	exit 1
+fi
+
+if [[ $# -lt 1 ]] || $([[ $# -eq 1 ]] && [[ $1 == "--help" ]] || [[ $1 == "-h" ]])
+then 
+	echo Usage: tcst \[-h \| --help\] CHECK_FILE_DIRECTORY
+	echo C testing framework.
+	echo Compiles and runs C files whose names begin with \"test\"
+	echo then compares the output of these files with the expected
+	echo output found within the check files from the given
+	echo CHECK_FILE_DIRECTORY.
+echo
+	echo Options:
+	echo "    -h, --help                       displays this message"
+	echo "    -o, --output                     outputs expected/actual output"
+	echo "                                     of executable if it fails at"
+	echo "                                     runtime"
+	echo "    -c, --display-compiler-errors    displays compilation errors if"
+	echo "                                     any occur"
+	echo "    CHECK_FILE_DIRECTORY             absolute path to the directory"
+	echo "                                     containing the check files for"
+	echo "                                     the tests"
+	echo
+	echo Exit status:
+	echo 
+	echo 0 if OK
+	echo 1 if \"src\" directory not found
+	echo 2 if not enough parameters
+	echo 3 if check files directory does not exist
+	echo 4 if check files directory is empty
+	echo 10 if some test failed
+echo 
+	if [[ $1 == "--help" ]] || [[ $1 == "-h" ]]
+	then
+		exit 0
+	fi
+	exit 2
+fi
+
+outputOnFailed=0
+displayCompilerErrors=0
+totalNoOfTests=0
+noOfSuccessfullTests=0
+
+for param in $@
+do
+	if [[ $param != "-h" ]] && [[ $param != "--help" ]] && [[ $param != "-o" ]] && [[ $param != "--output" ]] && [[ $param != "-c" ]] && [[ $param != "--display-compiler-errors" ]]
+	then
+		checkFileDirectory=$param
+	fi
+
+	if [[ $param == "-o" ]] || [[ $param == "--output" ]]
+	then 
+		outputOnFailed=1
+	fi
+
+	if [[ $param == "-c" ]] || [[ $param == "--display-compiler-errors" ]]
+	then
+		displayCompilerErrors=1
+	fi
+done
+
+if [[ $checkFileDirectory != */ ]]
+then
+	checkFileDirectory=$checkFileDirectory"/"
+fi
+
+if ! [ -d $checkFileDirectory ]
+then
+	echo check files directory \"$checkFileDirectory\" does not exist >&2
+	exit 3
+fi
+
+if [[ $(find $checkFileDirectory -type f | wc -l) == 0 ]] 
+then 
+	echo check files directory \"$checkFileDirectory\" is empty >&2
+	exit 4
+fi
+
+mkdir ./src/output 2> /dev/null
+touch ./src/output/outputcheck 2> /dev/null
+
+find ./src -type f -name "test*.c" | while read testFile
+do
+	echo 1 >> totcount
+
+ 	outputFileName=$(echo $testFile  | sed "s/.\/src\///" | sed "s/\///g" | sed "s/.c//")
+	checkFile="$checkFileDirectory""$outputFileName"
+	outputFileName="./src/output/$outputFileName"
+
+	if ! gcc $testFile -o $outputFileName 2> "./src/output/compileout"
+	then
+		echo $testFile failed at compilation...
+		if [[ $displayCompilerErrors == 1 ]]
+		then
+			IFS=''
+			cat "./src/output/compileout" | while read line
+			do
+				echo "  >  "$line
+			done
+			echo
+		fi
+		exitStatus=10
+	else
+		$outputFileName > ./src/output/outputcheck
+	
+		if ! [ -f $checkFile ]
+		then
+			echo check file for \"$testFile\" is non-existent, $testFile failed...
+			exitStatus=10
+		else
+			if cmp -s "./src/output/outputcheck" "$checkFile"
+			then
+				echo $testFile passed...
+				echo 1 >> ./succount
+			else 
+				echo $testFile failed at runtime...
+				if [[ $outputOnFailed == "1" ]] 
+				then
+					echo " "Exected output for $testFile:
+					cat $checkFile
+					echo
+					echo " "Actual output of $testFile:
+					IFS=''
+					cat "./src/output/outputcheck"
+					echo
+				fi
+				exitStatus=10
+			fi
+		fi
+	fi
+done
+
+echo 
+noOfSuccessfullTests=$(cat succount | wc -l)
+totalNoOfTests=$(cat totcount | wc -l)
+echo $noOfSuccessfullTests out of $totalNoOfTests tests passed...
+rm succount totcount 2> /dev/null
+
+if [[ $exitStatus == 0 ]] 
+then 
+	exit 0
+else
+	exit 10
+fi
