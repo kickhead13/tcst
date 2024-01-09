@@ -18,24 +18,15 @@ printHelpMessage() {
 	echo "    CHECK_FILE_DIRECTORY             absolute path to the directory"
 	echo "                                     containing the check files for"
 	echo "                                     the tests"
+	echo
 	echo Exit status:
+	echo 
 	echo 0 if OK
 	echo 1 if \"src\" directory not found
-	echo 2 if not enough parameters / wrong parameters
+	echo 2 if not enough parameters
 	echo 3 if check files directory does not exist
 	echo 4 if check files directory is empty
 	echo 10 if some test failed
-	echo 
-	echo Expected directory structure:
-	echo "./"
-	echo "|--src"
-	echo "| |--test*.c"
-	echo "| |--test*.c"
-	echo "| |--SUBDIRECTORY "
-	echo "| | |--test*.c"
-	echo "| | | ..."
-	echo "| | ..."
-	echo "| ..."
 }
 
 if ! find -type d -wholename "./src" > /dev/null
@@ -46,7 +37,7 @@ fi
 
 if [[ $# -lt 1 ]] || $([[ $# -eq 1 ]] && [[ $1 == "--help" ]] || [[ $1 == "-h" ]])
 then 
-	printHelpMessage
+	printHelpMessage 
 	if [[ $1 == "--help" ]] || [[ $1 == "-h" ]]
 	then
 		exit 0
@@ -58,28 +49,17 @@ outputOnFailed=0
 displayCompilerErrors=0
 totalNoOfTests=0
 noOfSuccessfullTests=0
-checkFileDirectory=0
+exitStatus=0
 
 for param in $@
 do
 	if [[ $param != "-h" ]] && [[ $param != "--help" ]] && [[ $param != "-o" ]] && [[ $param != "--output" ]] && [[ $param != "-c" ]] && [[ $param != "--display-compiler-errors" ]]
 	then
-		if [[ $param == -* ]]
-		then
-			printHelpMessage
-			exit 2
-		fi
-		if [[ $checkFileDirectory == 0 ]]
-		then
-			checkFileDirectory=$param
-		else
-			printHelpMessage
-			exit 2
-		fi
+		checkFileDirectory=$param
 	fi
 
 	if [[ $param == "-h" ]] || [[ $param == "--help" ]]
-	then 
+	then
 		printHelpMessage
 		exit 0
 	fi
@@ -135,14 +115,14 @@ do
 			done
 			echo
 		fi
-		exitStatus=10
+		export exitStatus=10
 	else
 		$outputFileName > ./src/output/outputcheck
 	
 		if ! [ -f $checkFile ]
 		then
 			echo check file for \"$testFile\" is non-existent, $testFile failed...
-			exitStatus=10
+			export exitStatus=10
 		else
 			if cmp -s "./src/output/outputcheck" "$checkFile"
 			then
@@ -160,14 +140,17 @@ do
 					cat "./src/output/outputcheck"
 					echo
 				fi
-				exitStatus=10
+				export exitStatus=10
 			fi
+			export exitStatus
 		fi
+		export exitStatus
 	fi
+	export exitStatus
 done
 
 echo 
-noOfSuccessfullTests=$(cat succount | wc -l)
+noOfSuccessfullTests=$(cat succount 2> /dev/null | wc -l)
 totalNoOfTests=$(cat totcount | wc -l)
 echo $noOfSuccessfullTests out of $totalNoOfTests tests passed...
 rm succount totcount 2> /dev/null
