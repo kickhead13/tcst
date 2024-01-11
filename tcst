@@ -7,6 +7,13 @@ printHelpMessage() {
 	echo then compares the output of these files with the expected
 	echo output found within the check files from the given
 	echo CHECK_FILE_DIRECTORY.
+	echo The program will compile a file such as
+	echo ./src/dir1/.../dirn/testn.c to the executable
+	echo ./src/output/dir1...dirntestn, which will then be run, and
+	echo its output will be compared to the contents of
+	echo CHECK_FILE_DIRECTORY/dir1...dirntestn.
+	echo The folder CHECK_FILE_DIRECTORY and its contents must 
+	echo already be created at runtime.
 	echo
 	echo Options:
 	echo "    -h, --help                       displays this message"
@@ -15,6 +22,8 @@ printHelpMessage() {
 	echo "                                     runtime"
 	echo "    -c, --display-compiler-errors    displays compilation errors if"
 	echo "                                     any occur"
+	echo "    -b, --bench-mark    <N>          run benchmark for each test N"
+	echo "                                     times"
 	echo "    CHECK_FILE_DIRECTORY             absolute path to the directory"
 	echo "                                     containing the check files for"
 	echo "                                     the tests"
@@ -40,6 +49,17 @@ printHelpMessage() {
 	echo "| ..."
 }
 
+benchmark() {
+	echo "  "Running benchmark for $3...
+	startTime=$(date +%s%3N)
+	for ((i=0;i<$2;i++)) 
+	do
+		 $1 > /dev/null
+	done
+	endTime=$(date +%s%3N)
+	echo "  "Benchmark time: $(($endTime-$startTime)) ms for $2 runs
+}
+
 if ! find -type d -wholename "./src" > /dev/null
 then
 	echo \"src\" directory not found >&2
@@ -62,24 +82,36 @@ totalNoOfTests=0
 noOfSuccessfullTests=0
 checkFileDirectory=0
 exitStatus=0
+benchMarkCheck=0
+benchMarkSize=10000
+last=" "
 
 for param in $@
 do
-	if [[ $param != "-h" ]] && [[ $param != "--help" ]] && [[ $param != "-o" ]] && [[ $param != "--output" ]] && [[ $param != "-c" ]] && [[ $param != "--display-compiler-errors" ]]
+	if [[ $param != "-h" ]] && [[ $param != "--help" ]] && [[ $param != "-o" ]] && [[ $param != "--output" ]] && [[ $param != "-c" ]] && [[ $param != "--display-compiler-errors" ]] && [[ $param != "-b" ]] && [[ $param != "--bench-mark" ]]
 	then
 		if [[ $param == -* ]]
 		then
 			printHelpMessage
 			exit 2
 		fi
-		if [[ $checkFileDirectory == 0 ]]
+		if [[ $last == "-b" ]] || [[ $last == "--bench-mark" ]]
 		then
-			checkFileDirectory=$param
+			benchMarkSize=$param
 		else
-			printHelpMessage
-			exit 2
+			if [[ $checkFileDirectory == 0 ]]
+			then
+				checkFileDirectory=$param
+			else
+				printHelpMessage
+				exit 2
+			fi
 		fi
-		checkFileDirectory=$param
+	fi
+
+	if [[ $param == "-b" ]] || [[ $param == "--bench-mark" ]] 
+	then
+		benchMarkCheck=1
 	fi
 
 	if [[ $param == "-h" ]] || [[ $param == "--help" ]]
@@ -97,6 +129,7 @@ do
 	then
 		displayCompilerErrors=1
 	fi
+	last=$param
 done
 
 if [[ $checkFileDirectory != */ ]]
@@ -151,6 +184,10 @@ do
 			if cmp -s "./src/output/outputcheck" "$checkFile"
 			then
 				echo $testFile passed...
+				if [[ $benchMarkCheck == "1" ]] 
+				then 
+					benchmark $outputFileName $benchMarkSize $testFile
+				fi
 				echo 1 >> ./succount
 			else 
 				echo $testFile failed at runtime...
