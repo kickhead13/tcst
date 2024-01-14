@@ -41,10 +41,6 @@ printHelpMessage() {
 	echo "./"
 	echo "|--src"
 	echo "| |--test*.c"
-	echo "| |--test*.c"
-	echo "| |--SUBDIRECTORY "
-	echo "| | |--test*.c"
-	echo "| | | ..."
 	echo "| | ..."
 	echo "| ..."
 }
@@ -81,7 +77,6 @@ displayCompilerErrors=0
 totalNoOfTests=0
 noOfSuccessfullTests=0
 checkFileDirectory=0
-exitStatus=0
 benchMarkCheck=0
 benchMarkSize=10000
 last=" "
@@ -172,14 +167,12 @@ do
 			done
 			echo
 		fi
-		export exitStatus=10
 	else
 		$outputFileName > ./src/output/outputcheck
 	
 		if ! [ -f $checkFile ]
 		then
 			echo check file for \"$testFile\" is non-existent, $testFile failed...
-			export exitStatus=10
 		else
 			if cmp -s "./src/output/outputcheck" "$checkFile"
 			then
@@ -201,13 +194,9 @@ do
 					cat "./src/output/outputcheck"
 					echo
 				fi
-				export exitStatus=10
 			fi
-			export exitStatus
 		fi
-		export exitStatus
 	fi
-	export exitStatus
 done
 
 echo 
@@ -216,7 +205,7 @@ totalNoOfTests=$(cat totcount | wc -l)
 echo $noOfSuccessfullTests out of $totalNoOfTests tests passed...
 rm succount totcount 2> /dev/null
 
-if [[ $exitStatus == 0 ]] 
+if [[ $(( $totalNoOfTests - $noOfSuccessfullTests )) == 0 ]] 
 then 
 	exit 0
 else
