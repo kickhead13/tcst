@@ -1,5 +1,4 @@
 # tcst
-by Ana Alexandru-Gabriel & Istrate Ioana <br>
 `tcst` is a linux shell C tester for the tcst C testing framework, able to:
   * compile and run source code against check files given
   * bench mark the different tests found
